@@ -8,7 +8,7 @@ train: data/images/train
 val: data/images/val
 test: data/images/test
 # number of classes
-nc: 1
+nc: 2
 
 # class names
-names: ['people']
+names: ['people','dog']
