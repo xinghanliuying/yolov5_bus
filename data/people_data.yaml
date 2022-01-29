@@ -3,7 +3,7 @@
 
 # train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
 
-path: ../datasets/people # dataset root dir
+path: /kaggle/input/people/ # dataset root dir
 train: data/images/train
 val: data/images/val
 test: data/images/test
