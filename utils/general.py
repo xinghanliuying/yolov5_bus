@@ -653,7 +653,7 @@ def NMS_diou(boxes, scores, iou_thres, GIoU=False, DIoU=False, CIoU=False):
         keep.append(index)
         if B.numel() == 1: break
         # 计算iou,根据需求可选择GIOU,DIOU,CIOU
-        iou = bbox_iou(boxes[index, :], boxes[B[1:], :], GIoU=GIoU, DIoU=DIoU, CIoU=CIoU)
+        iou = bbox_iou(boxes[index, :], boxes[B[1:], :], x1y1x2y2=False, DIoU=True)
         # 找到符合阈值的下标
         inds = torch.nonzero(iou <= iou_thres).reshape(-1)
         B = B[inds + 1]
