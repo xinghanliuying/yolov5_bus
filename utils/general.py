@@ -1,4 +1,4 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license v3
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license v5
 """
 General utils
 """
@@ -635,7 +635,7 @@ def clip_coords(boxes, shape):
         boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, shape[1])  # x1, x2
         boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, shape[0])  # y1, y2
 
-def NMS_diou(boxes, scores, iou_thres, GIoU=False, DIoU=False, CIoU=False):
+def NMS_diou(boxes, scores, iou_thres):
     """
     :param boxes:  (Tensor[N, 4])): are expected to be in ``(x1, y1, x2, y2)
     :param scores: (Tensor[N]): scores for each one of the boxes
@@ -734,7 +734,7 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         # Batched NMS
         c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
         boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
-        i = NMS_diou(boxes, scores, iou_thres, DIoU=True)  # NMS
+        i = NMS_diou(boxes, scores, iou_thres)  # NMS
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
