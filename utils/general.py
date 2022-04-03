@@ -28,10 +28,12 @@ import pkg_resources as pkg
 import torch
 import torchvision
 import yaml
-
+from utils.torch_utils import is_parallel
 from utils.downloads import gsutil_getsize
 from utils.metrics import box_iou, fitness
-
+from utils.metrics import bbox_iou
+import torch
+import torch.nn as nn
 # Settings
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
 np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format})  # format short g, %precision=5
@@ -636,6 +638,29 @@ def clip_coords(boxes, shape):
         boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, shape[1])  # x1, x2
         boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, shape[0])  # y1, y2
 
+def NMS_diou(boxes, scores, iou_thres, GIoU=False, DIoU=False, CIoU=False):
+    """
+    :param boxes:  (Tensor[N, 4])): are expected to be in ``(x1, y1, x2, y2)
+    :param scores: (Tensor[N]): scores for each one of the boxes
+    :param iou_thres: discards all overlapping boxes with IoU > iou_threshold
+    :return:keep (Tensor): int64 tensor with the indices
+            of the elements that have been kept
+            by NMS, sorted in decreasing order of scores
+    """
+    # 按conf从大到小排序
+    B = torch.argsort(scores, dim=-1, descending=True)
+    keep = []
+    while B.numel() > 0:
+        # 取出置信度最高的
+        index = B[0]
+        keep.append(index)
+        if B.numel() == 1: break
+        # 计算iou,根据需求可选择GIOU,DIOU,CIOU
+        iou = bbox_iou(boxes[index, :], boxes[B[1:], :], GIoU=GIoU, DIoU=DIoU, CIoU=CIoU)
+        # 找到符合阈值的下标
+        inds = torch.nonzero(iou <= iou_thres).reshape(-1)
+        B = B[inds + 1]
+    return torch.tensor(keep)
 
 def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False,
                         labels=(), max_det=300):
@@ -712,7 +737,7 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         # Batched NMS
         c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
         boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
-        i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
+        i = NMS_diou(boxes, scores, iou_thres,DIoU=True)  # NMS
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
