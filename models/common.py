@@ -24,7 +24,7 @@ from utils.general import (LOGGER, check_requirements, check_suffix, colorstr, i
                            non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh)
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import time_sync
-
+from utils.activations import MetaAconC
 
 def autopad(k, p=None):  # kernel, padding
     # Pad to 'same'
@@ -33,20 +33,36 @@ def autopad(k, p=None):  # kernel, padding
     return p
 
 
+# class Conv(nn.Module):
+#     # Standard convolution
+#     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
+#         super().__init__()
+#         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
+#         self.bn = nn.BatchNorm2d(c2)
+#         self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+#
+#     def forward(self, x):
+#         return self.act(self.bn(self.conv(x)))
+#
+#     def forward_fuse(self, x):
+#         return self.act(self.conv(x))
 class Conv(nn.Module):
     # Standard convolution
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
         super().__init__()
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+        # 这里的nn.Identity()不改变input，直接return input
+        # self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+        self.act = MetaAconC(c1=c2) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))
 
+    # 前向加速推理模块
+    # 用于Model类的fuse函数，融合conv+bn 加速推理 一般用于测试/验证阶段
     def forward_fuse(self, x):
         return self.act(self.conv(x))
-
 
 class DWConv(Conv):
     # Depth-wise convolution class
