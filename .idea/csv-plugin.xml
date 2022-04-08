@@ -10,6 +10,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\models\yolov5s.yaml">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\train.py">
           <value>
             <Attribute>

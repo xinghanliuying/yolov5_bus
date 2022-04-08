@@ -289,6 +289,10 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         #     channel = args[0]
         #     channel = make_divisible(channel * gw, 8) if channel != no else channel
         #     args = [channel]
+        elif m is CABlock:
+            inp, oup, re = args[0], args[1], args[2]
+            oup = make_divisible(oup * gw, 8) if oup != no else oup
+            args = [inp, oup, re]
         else:
             c2 = ch[f]
 
