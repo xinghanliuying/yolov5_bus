@@ -1,4 +1,4 @@
-## YOLOv5 🚀 by Ultralytics, GPL-3.0 license v2
+## YOLOv5 🚀 by Ultralytics, GPL-3.0 license v3
 #
 ## Parameters
 #nc: 2 # number of classes
@@ -122,8 +122,8 @@ backbone:
    [-1, 1, Conv, [512, 3, 2]],  # 5-P4/16  40  # 320, 640
    [-1, 9, C3, [512]],  # 640, 640
    [-1, 1, Conv, [1024, 3, 2]],  # 7-P5/32  20 # 640, 1280
-   [-1, 1, SPP, [1024, [5, 9, 13]]],  # 1280, 1280
-   [-1, 3, C3, [1024, False]],  # 9 1280, 1280
+   [-1, 3, C3, [1024]],
+   [-1, 1, SPPF, [1024, 5]],  # 9
   ]
 
 # YOLOv5 head
