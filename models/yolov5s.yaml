@@ -1,4 +1,4 @@
-  # YOLOv5 🚀 by Ultralytics, GPL-3.0 license v10
+  # YOLOv5 🚀 by Ultralytics, GPL-3.0 license v11
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 
 # Parameters CAS
@@ -303,7 +303,7 @@
 #  ]
 
 #增加小目标检测层 2
-parameters
+#parameters
 nc: 2  # number of classes
 depth_multiple: 0.33  # model depth multiple
 width_multiple: 0.50  # layer channel multiple
