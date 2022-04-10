@@ -1,6 +1,6 @@
-# YOLOv5 🚀 by Ultralytics, GPL-3.0 license v3
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
-Common modules v1
+Common modules
 """
 
 import json
@@ -322,15 +322,14 @@ class Swish(nn.Module):
 
 class Concat(nn.Module):
     # Concatenate a list of tensors along dimension
-    def __init__(self, dimension=1):
+    def __init__(self, c1, c2):
         super(Concat, self).__init__()
         # self.relu = nn.ReLU()
         self.w1 = nn.Parameter(torch.ones(2, dtype=torch.float32), requires_grad=True)
         self.w2 = nn.Parameter(torch.ones(3, dtype=torch.float32), requires_grad=True)
         self.epsilon = 0.0001
-        #self.conv = nn.Conv2d(c1, c2, kernel_size=1, stride=1, padding=0)
+        self.conv = nn.Conv2d(c1, c2, kernel_size=1, stride=1, padding=0)
         self.swish = MemoryEfficientSwish()
-        self.d = dimension
 
     def forward(self, x):
         outs = self._forward(x)
