@@ -1,7 +1,6 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
-YOLO-specific modules
-# v3
+YOLO-specific modules v4
 
 Usage:
     $ python path/to/models/yolo.py --cfg yolov5s.yaml
@@ -81,6 +80,17 @@ class ASFF_Detect(nn.Module):  # add ASFFV5 layer and Rfb
                 z.append(y.view(bs, -1, self.no))
 
         return x if self.training else (torch.cat(z, 1),) if self.export else (torch.cat(z, 1), x)
+
+    def _make_grid(self, nx=20, ny=20, i=0):
+        d = self.anchors[i].device
+        shape = 1, self.na, ny, nx, 2  # grid shape
+        if check_version(torch.__version__, '1.10.0'):  # torch>=1.10.0 meshgrid workaround for torch>=0.7 compatibility
+            yv, xv = torch.meshgrid(torch.arange(ny, device=d), torch.arange(nx, device=d), indexing='ij')
+        else:
+            yv, xv = torch.meshgrid(torch.arange(ny, device=d), torch.arange(nx, device=d))
+        grid = torch.stack((xv, yv), 2).expand(shape).float() - 0.5  # add grid offset, i.e. y = 2.0 * x - 0.5
+        anchor_grid = (self.anchors[i] * self.stride[i]).view((1, self.na, 1, 1, 2)).expand(shape).float()
+        return grid, anchor_grid
 
 class Detect(nn.Module):
     stride = None  # strides computed during build
