@@ -1,7 +1,7 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+
 """
-YOLO-specific modules
-v5
+YOLO-specific modules v6
 
 Usage:
     $ python path/to/models/yolo.py --cfg yolov5s.yaml
@@ -169,7 +169,7 @@ class Model(nn.Module):
 
         # Build strides, anchors
         m = self.model[-1]  # Detect()
-        if isinstance(m, Detect):
+        if isinstance(m, Detect)or isinstance(m, ASFF_Detect):
             s = 256  # 2x min stride
             m.inplace = self.inplace
             m.stride = torch.tensor([s / x.shape[-2] for x in self.forward(torch.zeros(1, ch, s, s))])  # forward
