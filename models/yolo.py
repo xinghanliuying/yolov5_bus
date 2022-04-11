@@ -1,6 +1,7 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
-YOLO-specific modules v4
+YOLO-specific modules
+v5
 
 Usage:
     $ python path/to/models/yolo.py --cfg yolov5s.yaml
@@ -351,8 +352,6 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             c2 = ch[f] * args[0] ** 2
         elif m is Expand:
             c2 = ch[f] // args[0] ** 2
-        elif m is ASFFV5: #asff
-            c2 = args[1]
         # elif m is eca_layer:
         #     channel = args[0]
         #     channel = make_divisible(channel * gw, 8) if channel != no else channel
