@@ -857,3 +857,138 @@ class eca_layer(nn.Module):
         x = x * y.expand_as(x)
 
         return x * y.expand_as(x)
+
+# asff
+class ASFFV5(nn.Module):
+    def __init__(self, level, multiplier=1, rfb=False, vis=False, act_cfg=True):
+        """
+        ASFF version for YoloV5 only.
+        Since YoloV5 outputs 3 layer of feature maps with different channels
+        which is different than YoloV3
+        normally, multiplier should be 1, 0.5
+        which means, the channel of ASFF can be
+        512, 256, 128 -> multiplier=1
+        256, 128, 64 -> multiplier=0.5
+        For even smaller, you gonna need change code manually.
+        """
+        super(ASFFV5, self).__init__()
+        self.level = level
+        self.dim = [int(1024 * multiplier), int(512 * multiplier),
+                    int(256 * multiplier)]
+        # print("dim:",self.dim)
+
+        self.inter_dim = self.dim[self.level]
+        if level == 0:
+            self.stride_level_1 = Conv(int(512 * multiplier), self.inter_dim, 3, 2)
+            # print(self.dim)
+            self.stride_level_2 = Conv(int(256 * multiplier), self.inter_dim, 3, 2)
+
+            self.expand = Conv(self.inter_dim, int(
+                1024 * multiplier), 3, 1)
+        elif level == 1:
+            self.compress_level_0 = Conv(
+                int(1024 * multiplier), self.inter_dim, 1, 1)
+            self.stride_level_2 = Conv(
+                int(256 * multiplier), self.inter_dim, 3, 2)
+            self.expand = Conv(self.inter_dim, int(512 * multiplier), 3, 1)
+        elif level == 2:
+            self.compress_level_0 = Conv(
+                int(1024 * multiplier), self.inter_dim, 1, 1)
+            self.compress_level_1 = Conv(
+                int(512 * multiplier), self.inter_dim, 1, 1)
+            self.expand = Conv(self.inter_dim, int(
+                256 * multiplier), 3, 1)
+
+        # when adding rfb, we use half number of channels to save memory
+        compress_c = 8 if rfb else 16
+
+        self.weight_level_0 = Conv(
+            self.inter_dim, compress_c, 1, 1)
+        self.weight_level_1 = Conv(
+            self.inter_dim, compress_c, 1, 1)
+        self.weight_level_2 = Conv(
+            self.inter_dim, compress_c, 1, 1)
+
+        self.weight_levels = Conv(
+            compress_c * 3, 3, 1, 1)
+        self.vis = vis
+
+    def forward(self, x_level_0, x_level_1, x_level_2):  # s,m,l
+        """
+        # 128, 256, 512
+        512, 256, 128
+        from small -> large
+        """
+        # print('x_level_0: ', x_level_0.shape)
+        # print('x_level_1: ', x_level_1.shape)
+        # print('x_level_2: ', x_level_2.shape)
+        x_level_0 = x[2]
+        x_level_1 = x[1]
+        x_level_2 = x[0]
+        if self.level == 0:
+            level_0_resized = x_level_0
+            level_1_resized = self.stride_level_1(x_level_1)
+
+            level_2_downsampled_inter = F.max_pool2d(
+                x_level_2, 3, stride=2, padding=1)
+
+            level_2_resized = self.stride_level_2(level_2_downsampled_inter)
+            # print('X——level_0: ', level_2_downsampled_inter.shape)
+        elif self.level == 1:
+            level_0_compressed = self.compress_level_0(x_level_0)
+            level_0_resized = F.interpolate(
+                level_0_compressed, scale_factor=2, mode='nearest')
+            level_1_resized = x_level_1
+            level_2_resized = self.stride_level_2(x_level_2)
+        elif self.level == 2:
+            level_0_compressed = self.compress_level_0(x_level_0)
+            level_0_resized = F.interpolate(
+                level_0_compressed, scale_factor=4, mode='nearest')
+            x_level_1_compressed = self.compress_level_1(x_level_1)
+            level_1_resized = F.interpolate(
+                x_level_1_compressed, scale_factor=2, mode='nearest')
+            level_2_resized = x_level_2
+
+        # print('level: {}, l1_resized: {}, l2_resized: {}'.format(self.level,
+        #  level_1_resized.shape, level_2_resized.shape))
+        level_0_weight_v = self.weight_level_0(level_0_resized)
+        level_1_weight_v = self.weight_level_1(level_1_resized)
+        level_2_weight_v = self.weight_level_2(level_2_resized)
+        # print('level_0_weight_v: ', level_0_weight_v.shape)
+        # print('level_1_weight_v: ', level_1_weight_v.shape)
+        # print('level_2_weight_v: ', level_2_weight_v.shape)
+
+        levels_weight_v = torch.cat(
+            (level_0_weight_v, level_1_weight_v, level_2_weight_v), 1)
+        levels_weight = self.weight_levels(levels_weight_v)
+        levels_weight = F.softmax(levels_weight, dim=1)
+
+        fused_out_reduced = level_0_resized * levels_weight[:, 0:1, :, :] + \
+                            level_1_resized * levels_weight[:, 1:2, :, :] + \
+                            level_2_resized * levels_weight[:, 2:, :, :]
+
+        out = self.expand(fused_out_reduced)
+
+        if self.vis:
+            return out, levels_weight, fused_out_reduced.sum(dim=1)
+        else:
+            return out
+
+class ASFF_Detect(nn.Module):   #add ASFFV5 layer and Rfb
+    stride = None  # strides computed during build
+    export = False  # onnx export
+
+    def __init__(self, nc=80, anchors=(), multiplier=0.5,rfb=False,ch=()):  # detection layer
+        super(ASFF_Detect, self).__init__()
+        self.nc = nc  # number of classes
+        self.no = nc + 5  # number of outputs per anchor
+        self.nl = len(anchors)  # number of detection layers
+        self.na = len(anchors[0]) // 2  # number of anchors
+        self.grid = [torch.zeros(1)] * self.nl  # init grid
+        self.l0_fusion = ASFFV5(level=0, multiplier=multiplier,rfb=rfb)
+        self.l1_fusion = ASFFV5(level=1, multiplier=multiplier,rfb=rfb)
+        self.l2_fusion = ASFFV5(level=2, multiplier=multiplier,rfb=rfb)
+        a = torch.tensor(anchors).float().view(self.nl, -1, 2)
+        self.register_buffer('anchors', a)  # shape(nl,na,2)
+        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
+        self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
