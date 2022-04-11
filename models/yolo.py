@@ -30,6 +30,24 @@ try:
 except ImportError:
     thop = None
 
+class ASFF_Detect(nn.Module):   #add ASFFV5 layer and Rfb
+    stride = None  # strides computed during build
+    export = False  # onnx export
+
+    def __init__(self, nc=80, anchors=(), multiplier=0.5,rfb=False,ch=()):  # detection layer
+        super(ASFF_Detect, self).__init__()
+        self.nc = nc  # number of classes
+        self.no = nc + 5  # number of outputs per anchor
+        self.nl = len(anchors)  # number of detection layers
+        self.na = len(anchors[0]) // 2  # number of anchors
+        self.grid = [torch.zeros(1)] * self.nl  # init grid
+        self.l0_fusion = ASFFV5(level=0, multiplier=multiplier,rfb=rfb)
+        self.l1_fusion = ASFFV5(level=1, multiplier=multiplier,rfb=rfb)
+        self.l2_fusion = ASFFV5(level=2, multiplier=multiplier,rfb=rfb)
+        a = torch.tensor(anchors).float().view(self.nl, -1, 2)
+        self.register_buffer('anchors', a)  # shape(nl,na,2)
+        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
+        self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
 
 class Detect(nn.Module):
     stride = None  # strides computed during build
@@ -277,7 +295,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             args = [ch[f]]
         elif m is Concat:
             # c2 = max([ch[x] for x in f])
-             c2 = sum(ch[x] for x in f)
+            c2 = sum(ch[x] for x in f)
         elif m is ASFF_Detect:#asff
             args.append([ch[x] for x in f])
             if isinstance(args[1], int):  # number of anchors
@@ -290,7 +308,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             c2 = ch[f] * args[0] ** 2
         elif m is Expand:
             c2 = ch[f] // args[0] ** 2
-        elif m is ASFFV5:#asff
+        elif m is ASFFV5: #asff
             c2 = args[1]
         # elif m is eca_layer:
         #     channel = args[0]

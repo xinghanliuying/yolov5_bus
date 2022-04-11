@@ -974,21 +974,4 @@ class ASFFV5(nn.Module):
         else:
             return out
 
-class ASFF_Detect(nn.Module):   #add ASFFV5 layer and Rfb
-    stride = None  # strides computed during build
-    export = False  # onnx export
 
-    def __init__(self, nc=80, anchors=(), multiplier=0.5,rfb=False,ch=()):  # detection layer
-        super(ASFF_Detect, self).__init__()
-        self.nc = nc  # number of classes
-        self.no = nc + 5  # number of outputs per anchor
-        self.nl = len(anchors)  # number of detection layers
-        self.na = len(anchors[0]) // 2  # number of anchors
-        self.grid = [torch.zeros(1)] * self.nl  # init grid
-        self.l0_fusion = ASFFV5(level=0, multiplier=multiplier,rfb=rfb)
-        self.l1_fusion = ASFFV5(level=1, multiplier=multiplier,rfb=rfb)
-        self.l2_fusion = ASFFV5(level=2, multiplier=multiplier,rfb=rfb)
-        a = torch.tensor(anchors).float().view(self.nl, -1, 2)
-        self.register_buffer('anchors', a)  # shape(nl,na,2)
-        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
-        self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
