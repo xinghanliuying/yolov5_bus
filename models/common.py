@@ -280,75 +280,75 @@ class Expand(nn.Module):
         return x.view(b, c // s ** 2, h * s, w * s)  # x(1,16,160,160)
 
 
-# class Concat(nn.Module):
-#     # Concatenate a list of tensors along dimension
-#     def __init__(self, dimension=1):
-#         super().__init__()
-#         self.d = dimension
-#
-#     def forward(self, x):
-#         return torch.cat(x, self.d)
-class SwishImplementation(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, i):
-        result = i * torch.sigmoid(i)
-        ctx.save_for_backward(i)
-        return result
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        i = ctx.saved_variables[0]
-        sigmoid_i = torch.sigmoid(i)
-        return grad_output * (sigmoid_i * (1 + i * (1 - sigmoid_i)))
-
-
-class MemoryEfficientSwish(nn.Module):
-    def forward(self, x):
-        return SwishImplementation.apply(x)
-
-
-class Swish(nn.Module):
-    def forward(self, x):
-        return x * torch.sigmoid(x)
-#
-# class Concat(nn.Module):
-#     # Concatenate a list of tensors along dimension
-#     def __init__(self, dimension=1):
-#         super(Concat, self).__init__()
-#         self.d = dimension
-#
-#     def forward(self, x):
-#         return torch.cat(x, self.d)
-
 class Concat(nn.Module):
     # Concatenate a list of tensors along dimension
-    def __init__(self, c1, c2):
-        super(Concat, self).__init__()
-        # self.relu = nn.ReLU()
-        self.w1 = nn.Parameter(torch.ones(2, dtype=torch.float32), requires_grad=True)
-        self.w2 = nn.Parameter(torch.ones(3, dtype=torch.float32), requires_grad=True)
-        self.epsilon = 0.0001
-        self.conv = nn.Conv2d(c1, c2, kernel_size=1, stride=1, padding=0)
-        self.swish = MemoryEfficientSwish()
+    def __init__(self, dimension=1):
+        super().__init__()
+        self.d = dimension
 
     def forward(self, x):
-        outs = self._forward(x)
-        return outs
-
-    def _forward(self, x):
-        if len(x) == 2:
-            # w = self.relu(self.w1)
-            w = self.w1
-            weight = w / (torch.sum(w, dim=0) + self.epsilon)
-            # Connections for P6_0 and P7_0 to P6_1 respectively
-            x = self.conv(self.swish(weight[0] * x[0] + weight[1] * x[1]))
-        elif len(x) == 3:
-            # w = self.relu(self.w2)
-            w = self.w2
-            weight = w / (torch.sum(w, dim=0) + self.epsilon)
-            x = self.conv(self.swish(weight[0] * x[0] + weight[1] * x[1] + weight[2] * x[2]))
-
-        return x
+        return torch.cat(x, self.d)
+# class SwishImplementation(torch.autograd.Function):
+#     @staticmethod
+#     def forward(ctx, i):
+#         result = i * torch.sigmoid(i)
+#         ctx.save_for_backward(i)
+#         return result
+#
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         i = ctx.saved_variables[0]
+#         sigmoid_i = torch.sigmoid(i)
+#         return grad_output * (sigmoid_i * (1 + i * (1 - sigmoid_i)))
+#
+#
+# class MemoryEfficientSwish(nn.Module):
+#     def forward(self, x):
+#         return SwishImplementation.apply(x)
+#
+#
+# class Swish(nn.Module):
+#     def forward(self, x):
+#         return x * torch.sigmoid(x)
+# #
+# # class Concat(nn.Module):
+# #     # Concatenate a list of tensors along dimension
+# #     def __init__(self, dimension=1):
+# #         super(Concat, self).__init__()
+# #         self.d = dimension
+# #
+# #     def forward(self, x):
+# #         return torch.cat(x, self.d)
+#
+# class Concat(nn.Module):
+#     # Concatenate a list of tensors along dimension
+#     def __init__(self, c1, c2):
+#         super(Concat, self).__init__()
+#         # self.relu = nn.ReLU()
+#         self.w1 = nn.Parameter(torch.ones(2, dtype=torch.float32), requires_grad=True)
+#         self.w2 = nn.Parameter(torch.ones(3, dtype=torch.float32), requires_grad=True)
+#         self.epsilon = 0.0001
+#         self.conv = nn.Conv2d(c1, c2, kernel_size=1, stride=1, padding=0)
+#         self.swish = MemoryEfficientSwish()
+#
+#     def forward(self, x):
+#         outs = self._forward(x)
+#         return outs
+#
+#     def _forward(self, x):
+#         if len(x) == 2:
+#             # w = self.relu(self.w1)
+#             w = self.w1
+#             weight = w / (torch.sum(w, dim=0) + self.epsilon)
+#             # Connections for P6_0 and P7_0 to P6_1 respectively
+#             x = self.conv(self.swish(weight[0] * x[0] + weight[1] * x[1]))
+#         elif len(x) == 3:
+#             # w = self.relu(self.w2)
+#             w = self.w2
+#             weight = w / (torch.sum(w, dim=0) + self.epsilon)
+#             x = self.conv(self.swish(weight[0] * x[0] + weight[1] * x[1] + weight[2] * x[2]))
+#
+#         return x
 
 
 
