@@ -1,4 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# v1
 """
 Common modules
 """
@@ -25,7 +26,7 @@ from utils.general import (LOGGER, check_requirements, check_suffix, colorstr, i
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import time_sync
 from utils.activations import MetaAconC
-
+import torch.nn.functional as F
 def autopad(k, p=None):  # kernel, padding
     # Pad to 'same'
     if p is None:
@@ -862,25 +863,24 @@ class eca_layer(nn.Module):
 class ASFFV5(nn.Module):
     def __init__(self, level, multiplier=1, rfb=False, vis=False, act_cfg=True):
         """
-        ASFF version for YoloV5 only.
-        Since YoloV5 outputs 3 layer of feature maps with different channels
-        which is different than YoloV3
-        normally, multiplier should be 1, 0.5
+        ASFF version for YoloV5 .
+        different than YoloV3
+        multiplier should be 1, 0.5
         which means, the channel of ASFF can be
         512, 256, 128 -> multiplier=1
         256, 128, 64 -> multiplier=0.5
-        For even smaller, you gonna need change code manually.
+        For even smaller, you need change code manually.
         """
         super(ASFFV5, self).__init__()
         self.level = level
         self.dim = [int(1024 * multiplier), int(512 * multiplier),
                     int(256 * multiplier)]
-        # print("dim:",self.dim)
+        # print(self.dim)
 
         self.inter_dim = self.dim[self.level]
         if level == 0:
             self.stride_level_1 = Conv(int(512 * multiplier), self.inter_dim, 3, 2)
-            # print(self.dim)
+
             self.stride_level_2 = Conv(int(256 * multiplier), self.inter_dim, 3, 2)
 
             self.expand = Conv(self.inter_dim, int(
@@ -901,7 +901,6 @@ class ASFFV5(nn.Module):
 
         # when adding rfb, we use half number of channels to save memory
         compress_c = 8 if rfb else 16
-
         self.weight_level_0 = Conv(
             self.inter_dim, compress_c, 1, 1)
         self.weight_level_1 = Conv(
@@ -913,27 +912,24 @@ class ASFFV5(nn.Module):
             compress_c * 3, 3, 1, 1)
         self.vis = vis
 
-    def forward(self, x_level_0, x_level_1, x_level_2):  # s,m,l
+    def forward(self, x):  # l,m,s
         """
         # 128, 256, 512
         512, 256, 128
         from small -> large
         """
+        x_level_0 = x[2]  # l
+        x_level_1 = x[1]  # m
+        x_level_2 = x[0]  # s
         # print('x_level_0: ', x_level_0.shape)
         # print('x_level_1: ', x_level_1.shape)
         # print('x_level_2: ', x_level_2.shape)
-        x_level_0 = x[2]
-        x_level_1 = x[1]
-        x_level_2 = x[0]
         if self.level == 0:
             level_0_resized = x_level_0
             level_1_resized = self.stride_level_1(x_level_1)
-
             level_2_downsampled_inter = F.max_pool2d(
                 x_level_2, 3, stride=2, padding=1)
-
             level_2_resized = self.stride_level_2(level_2_downsampled_inter)
-            # print('X——level_0: ', level_2_downsampled_inter.shape)
         elif self.level == 1:
             level_0_compressed = self.compress_level_0(x_level_0)
             level_0_resized = F.interpolate(
@@ -950,7 +946,7 @@ class ASFFV5(nn.Module):
             level_2_resized = x_level_2
 
         # print('level: {}, l1_resized: {}, l2_resized: {}'.format(self.level,
-        #  level_1_resized.shape, level_2_resized.shape))
+        #      level_1_resized.shape, level_2_resized.shape))
         level_0_weight_v = self.weight_level_0(level_0_resized)
         level_1_weight_v = self.weight_level_1(level_1_resized)
         level_2_weight_v = self.weight_level_2(level_2_resized)
